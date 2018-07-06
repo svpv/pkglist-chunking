@@ -1,0 +1,14 @@
+#!/bin/sh -efu
+total=$(wc -l <new-src.list)
+common=$(comm -12 {old,new}-src.list |wc -l)
+echo srpms: total $total common $common \
+    $(perl -e 'printf "%.2f", 100*shift()/shift' $common $total)%
+gcc -g -Wall -O2 chunk-srclist.c -lt1ha -o chunk-srclist
+./chunk-srclist <old-src.list >old-src.chunks
+./chunk-srclist <new-src.list >new-src.chunks
+sort -u -o old-src.chunks{,}
+sort -u -o new-src.chunks{,}
+total=$(wc -l <new-src.chunks)
+common=$(comm -12 {old,new}-src.chunks |wc -l)
+echo chunks: total $total common $common \
+    $(perl -e 'printf "%.2f", 100*shift()/shift' $common $total)%
