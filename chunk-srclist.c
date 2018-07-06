@@ -64,11 +64,6 @@ int main()
 	return h;
     }
 
-    bool Funny2(void)
-    {
-	return stack[0].hash > stack[1].hash;
-    }
-
     while ((stack[nstack].srpm = read1()) != NULL) {
 	stack[nstack].hash = srpmHash(stack[nstack].srpm);
 	nstack++;
@@ -76,11 +71,12 @@ int main()
 	case 1:
 	    break;
 	case 2:
-	    if (Funny2())
-		Pop(2);
-	    break;
 	case 3:
-	    Pop(3);
+	    if (stack[nstack-1].hash < stack[nstack-2].hash)
+		break;
+	    // fall through
+	case 4:
+	    Pop(nstack);
 	    break;
 	default:
 	    assert(!"possible");
