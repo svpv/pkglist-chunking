@@ -1,0 +1,17 @@
+#!/bin/sh -efu
+gcc -g -O2 -Wall -D_GNU_SOURCE compress-srclist.c -lt1ha -lzstd -o compress-srclist
+md5a=$(xz -d <old-srclist.classic.xz |md5sum)
+md5b=$(xz -d <old-srclist.classic.xz |./compress-srclist 2>/dev/null |zstd -d |md5sum)
+if [ "$md5a" != "$md5b" ]; then
+    echo >&2 "cannot decompress the output"
+    exit 1
+fi
+        xz -d <old-srclist.classic.xz |./compress-srclist 2>old-src.chunks >/dev/null
+bytes=$(xz -d <new-srclist.classic.xz |./compress-srclist 2>new-src.chunks |wc -c)
+sort -u -o old-src.chunks{,}
+sort -u -o new-src.chunks{,}
+comm -12 {old,new}-src.chunks >common-src.chunks
+comm -13 {old,new}-src.chunks >missing-src.chunks
+echo total $bytes bytes $(wc -l <new-src.chunks) chunks $(wc -l <common-src.chunks) common
+echo $(wc -l <missing-src.chunks) missing chunks \
+     $(cut -f2 missing-src.chunks |perl -MList::Util=sum -ln0 -e 'print sum(split)') compressed bytes
