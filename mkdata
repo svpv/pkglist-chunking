@@ -1,0 +1,28 @@
+#!/bin/sh -efux
+
+oldrepo=http://ftp.altlinux.org/pub/distributions/archive/sisyphus/date/2018/06/05/
+newrepo=http://ftp.altlinux.org/pub/distributions/archive/sisyphus/date/2018/07/05/
+
+DL()
+{
+    [ -s "$1" ] || wget -O "$1" "$2"
+}
+
+DL {old-x86_64-,$oldrepo/x86_64/base/}pkglist.classic.xz
+DL {new-x86_64-,$newrepo/x86_64/base/}pkglist.classic.xz
+DL {old-noarch-,$oldrepo/noarch/base/}pkglist.classic.xz
+DL {new-noarch-,$newrepo/noarch/base/}pkglist.classic.xz
+DL {old-,$oldrepo/x86_64/base/}srclist.classic.xz
+DL {new-,$newrepo/x86_64/base/}srclist.classic.xz
+
+for arch in x86_64 noarch; do
+for age in old new; do
+    xz -d <$age-$arch-pkglist.classic.xz |
+    pkglist-query '%{Name}-%{Version}-%{Release}.%{Arch}.rpm\t%{SourceRPM}\n' - >$age-$arch.list
+done
+done
+
+for age in old new; do
+    xz -d <$age-srclist.classic.xz |
+    pkglist-query '%{Name}-%{Version}-%{Release}.src.rpm\n' - >$age-src.list
+done
