@@ -52,9 +52,16 @@ int main()
 	memmove(stack, stack + n, nstack * sizeof stack[0]);
     }
 
-    uint64_t srpmHash(const char *srpm)
+    uint64_t srpmHash(char *srpm)
     {
-	return t1ha(srpm, strlen(srpm), 0);
+	char *dash1 = strrchr(srpm, '-');
+	assert(dash1);
+	*dash1 = '\0';
+	char *dash2 = strrchr(srpm, '-');
+	assert(dash2);
+	uint64_t h = t1ha(srpm, dash2 - srpm, 0);
+	*dash1 = '-';
+	return h;
     }
 
     bool Funny2(void)
