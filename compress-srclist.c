@@ -61,11 +61,13 @@ static bool xwrite(int fd, const void *buf, size_t size)
 #include <string.h>
 #include <arpa/inet.h>
 #include <rpm/rpmtag.h>
+#include <t1ha.h>
 
 struct srpmBlob {
     void *blob;
     size_t blobSize;
     const char *pkgname;
+    uint64_t hash;
 };
 
 static bool read1(struct srpmBlob *b)
@@ -105,16 +107,85 @@ static bool read1(struct srpmBlob *b)
     assert(off < dl);
     char *data = (void *) (ee + il);
     b->pkgname = &data[off];
+    b->hash = t1ha(b->pkgname, strlen(b->pkgname), 0);
     return true;
 }
 
+#include <stdio.h>
+#include <inttypes.h>
+#include <zstd.h>
+
 int main()
 {
-    struct srpmBlob b;
-    while (read1(&b)) {
-	if (!xwrite(1, b.blob, b.blobSize))
+    struct srpmBlob stack[8];
+    size_t nstack = 0;
+
+    void Pop(size_t n)
+    {
+	assert(n > 0);
+	assert(nstack >= n);
+
+	size_t totalSize = stack[0].blobSize;
+	for (size_t i = 1; i < n; i++)
+	    totalSize += stack[i].blobSize;
+	size_t pkgnameoff = stack[0].pkgname - (char *) stack[0].blob;
+	stack[0].blob = realloc(stack[0].blob, totalSize + ZSTD_COMPRESSBOUND(totalSize));
+	assert(stack[0].blob);
+	stack[0].pkgname = stack[0].blob + pkgnameoff;
+
+	void *p = stack[0].blob + stack[0].blobSize;
+	for (int i = 1; i < n; i++)
+	    p = mempcpy(p, stack[i].blob, stack[i].blobSize);
+	assert(p - stack[0].blob == totalSize);
+
+#define level 3
+	size_t zsize = ZSTD_compress(p, ZSTD_COMPRESSBOUND(totalSize),
+				     stack[0].blob, totalSize, level);
+	assert(zsize > 0);
+	assert(zsize <= ZSTD_COMPRESSBOUND(totalSize));
+
+	if (!xwrite(1, p, zsize))
 	    assert(!!!"write failed");
-	free(b.blob);
+
+	uint64_t hi;
+	uint64_t lo = t1ha2_atonce128(&hi, p, zsize, 0);
+	fprintf(stderr, "%016" PRIx64 "%016" PRIx64 "\t%zu\t%s", lo, hi, zsize, stack[0].pkgname);
+	for (size_t i = 1; i < n; i++) {
+	    fprintf(stderr, " %s", stack[i].pkgname);
+	    free(stack[i].blob);
+	}
+	fprintf(stderr, "\n");
+	free(stack[0].blob);
+
+	nstack -= n;
+	memmove(stack, stack + n, nstack * sizeof stack[0]);
     }
+
+#if 0
+    // One header per chunk.
+    while (read1(stack))
+	Pop(++nstack);
+#else
+    // 2+ headers per chunk.
+    while (read1(&stack[nstack])) {
+	nstack++;
+	switch (nstack) {
+	case 1:
+	    break;
+	case 2:
+	case 3:
+	    if (stack[nstack-1].hash < stack[nstack-2].hash)
+		break;
+	    // fall through
+	case 4:
+	    Pop(nstack);
+	    break;
+	default:
+	    assert(!"possible");
+	}
+    }
+    if (nstack)
+	Pop(nstack);
+#endif
     return 0;
 }
