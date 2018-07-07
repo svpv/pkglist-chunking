@@ -62,6 +62,7 @@ int main()
     load();
 
     ZDICT_cover_params_t params = {
+	.d = 6,
 	.nbThreads = 2,
 	.zParams.notificationLevel = 3,
     };
