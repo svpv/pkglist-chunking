@@ -113,10 +113,58 @@ static bool read1(struct srpmBlob *b)
 
 #include <stdio.h>
 #include <inttypes.h>
+#include <fcntl.h>
 #include <zstd.h>
 
-int main()
+int main(int argc, char **argv)
 {
+    int level = 3;
+    const char *dictFile = NULL;
+
+    int opt;
+    while ((opt = getopt(argc, argv, "1::2::3::4::5::6::7::8::9::D:")) != -1) {
+	switch (opt) {
+	case '1':
+	    if (!optarg)
+		level = 1;
+	    else {
+		assert(*optarg >= '0' && *optarg <= '9');
+		assert(optarg[1] == '\0');
+		level = 10 + *optarg - '0';
+	    }
+	    break;
+	case '2': case '3': case '4': case '5':
+	case '6': case '7': case '8': case '9':
+	    if (optarg)
+		assert(!"supported levels > 19");
+	    level = opt - '0';
+	    break;
+	case 'D':
+	    dictFile = optarg;
+	    break;
+	default:
+	    fprintf(stderr, "Usage: %s <IN >OUT\n", argv[0]);
+	    return 2;
+	}
+    }
+
+    ZSTD_CCtx* cctx = ZSTD_createCCtx();
+    assert(cctx);
+
+    ZSTD_CDict *cdict = NULL;
+    if (dictFile) {
+	char buf[(128<<10)+1];
+	int fd = open(dictFile, O_RDONLY);
+	assert(fd);
+	ssize_t ret = xread(fd, buf, sizeof buf);
+	assert(ret > 0);
+	// Dictionaries should be smaller that 128K, otherwise literal stats
+	// for Huffman coding in the first 128K block wouldn't make sense.
+	assert(ret < sizeof buf);
+	cdict = ZSTD_createCDict(buf, ret, level);
+	assert(cdict);
+    }
+
     struct srpmBlob stack[8];
     size_t nstack = 0;
 
@@ -138,9 +186,13 @@ int main()
 	    p = mempcpy(p, stack[i].blob, stack[i].blobSize);
 	assert(p - stack[0].blob == totalSize);
 
-#define level 3
-	size_t zsize = ZSTD_compress(p, ZSTD_COMPRESSBOUND(totalSize),
-				     stack[0].blob, totalSize, level);
+	size_t zsize;
+	if (cdict)
+	    zsize = ZSTD_compress_usingCDict(cctx, p, ZSTD_COMPRESSBOUND(totalSize),
+					     stack[0].blob, totalSize, cdict);
+	else
+	    zsize = ZSTD_compressCCtx(cctx, p, ZSTD_COMPRESSBOUND(totalSize),
+				      stack[0].blob, totalSize, level);
 	assert(zsize > 0);
 	assert(zsize <= ZSTD_COMPRESSBOUND(totalSize));
 
