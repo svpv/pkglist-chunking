@@ -1,13 +1,45 @@
 #!/bin/sh -efu
+level= dict=
+argv=$(getopt -n "${0##*/}" -o 1::2::3::4::5::6::7::8::9::D: -- "$@")
+eval set -- "$argv"
+while :; do
+    case "$1" in
+	-1) level=$1
+	    case "$2" in
+		'') ;;
+		1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9)
+		    level=$1$2 ;;
+		*)
+		    echo >&2 "bad $1$2 arg"
+		    exit 2 ;;
+	    esac
+	    shift 2 ;;
+	-2 | -3 | -4 | -5 | -6 | -7 | -8 | -9)
+	    level=$1
+	    if [ -n "$2" ]; then
+		echo >&2 "levels > 19 not supported"
+		exit 1
+	    fi
+	    shift 2 ;;
+	-D) dict=${2:?}
+	    shift 2 ;;
+	--) shift
+	    break ;;
+	*)  echo "${0##*/}: invalid option $1"
+	    exit 2 ;;
+    esac
+done
+args=($level ${dict:+-D} ${dict:+"$dict"})
 gcc -g -O2 -Wall -D_GNU_SOURCE compress-srclist.c -lt1ha -lzstd -o compress-srclist
 md5a=$(xz -d <old-srclist.classic.xz |md5sum)
-md5b=$(xz -d <old-srclist.classic.xz |./compress-srclist 2>/dev/null |zstd -d |md5sum)
+md5b=$(xz -d <old-srclist.classic.xz |./compress-srclist "${args[@]}" 2>/dev/null \
+				     |zstd -d "${args[@]}" |md5sum)
 if [ "$md5a" != "$md5b" ]; then
     echo >&2 "cannot decompress the output"
     exit 1
 fi
-        xz -d <old-srclist.classic.xz |./compress-srclist 2>old-src.chunks >/dev/null
-bytes=$(xz -d <new-srclist.classic.xz |./compress-srclist 2>new-src.chunks |wc -c)
+        xz -d <old-srclist.classic.xz |./compress-srclist "${args[@]}" 2>old-src.chunks >/dev/null
+bytes=$(xz -d <new-srclist.classic.xz |./compress-srclist "${args[@]}" 2>new-src.chunks |wc -c)
 sort -u -o old-src.chunks{,}
 sort -u -o new-src.chunks{,}
 comm -12 {old,new}-src.chunks >common-src.chunks
