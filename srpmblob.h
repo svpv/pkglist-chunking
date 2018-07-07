@@ -33,6 +33,7 @@ struct srpmBlob {
     size_t blobSize;
     const char *name;
     uint64_t nameHash;
+    struct shingles *shi;
 };
 
 static bool readSrpmBlob(struct srpmBlob *b)
@@ -73,5 +74,6 @@ static bool readSrpmBlob(struct srpmBlob *b)
     char *data = (void *) (ee + il);
     b->name = &data[off];
     b->nameHash = t1ha(b->name, strlen(b->name), 0);
+    b->shi = NULL;
     return true;
 }

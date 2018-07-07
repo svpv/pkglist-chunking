@@ -30,7 +30,7 @@ while :; do
     esac
 done
 args=($level ${dict:+-D} ${dict:+"$dict"})
-gcc -g -O2 -Wall -D_GNU_SOURCE compress-srclist.c -lt1ha -lzstd -o compress-srclist
+gcc -g -O2 -Wall -D_GNU_SOURCE -Iqsort compress-srclist.c -lt1ha -lzstd -o compress-srclist
 md5a=$(xz -d <old-srclist.classic.xz |md5sum)
 md5b=$(xz -d <old-srclist.classic.xz |./compress-srclist "${args[@]}" 2>/dev/null \
 				     |zstd -d "${args[@]}" |md5sum)

@@ -1,0 +1,3 @@
+[submodule "qsort"]
+	path = qsort
+	url = https://github.com/svpv/qsort

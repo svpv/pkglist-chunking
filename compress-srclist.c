@@ -10,6 +10,7 @@
 #include "xread.h"
 #include "xwrite.h"
 #include "srpmblob.h"
+#include "shingle.h"
 
 int main(int argc, char **argv)
 {
@@ -98,9 +99,11 @@ int main(int argc, char **argv)
 	for (size_t i = 1; i < n; i++) {
 	    fprintf(stderr, " %s", stack[i].name);
 	    free(stack[i].blob);
+	    free(stack[i].shi);
 	}
 	fprintf(stderr, "\n");
 	free(stack[0].blob);
+	free(stack[0].shi);
 
 	nstack -= n;
 	memmove(stack, stack + n, nstack * sizeof stack[0]);
@@ -114,16 +117,37 @@ int main(int argc, char **argv)
     // 2+ headers per chunk.
     while (readSrpmBlob(&stack[nstack])) {
 	nstack++;
+	struct srpmBlob *prev, *last, *next1, *next2;
 	switch (nstack) {
 	case 1:
-	    break;
 	case 2:
 	case 3:
-	    if (stack[nstack-1].nameHash < stack[nstack-2].nameHash)
-		break;
-	    // fall through
+	    break;
 	case 4:
-	    Pop(nstack);
+	case 5:
+	    // have at least 2 + 2 lookahead
+	    prev = &stack[nstack-4];
+	    last = &stack[nstack-3];
+	    next1 = &stack[nstack-2];
+	    next2 = &stack[nstack-1];
+#if 0
+	    // shingling: where does the next1 item stick to?
+	    (void) prev;
+	    if (!last->shi) last->shi = shingle(last->blob, last->blobSize);
+	    if (!next1->shi) next1->shi = shingle(next1->blob, next1->blobSize);
+	    if (!next2->shi) next2->shi = shingle(next2->blob, next2->blobSize);
+	    if (shimilar(last->shi, next1->shi) > shimilar(next1->shi, next2->shi))
+		continue;
+#else
+	    // content-aware probabilistic chunking,
+	    // prev..last window (no need for lookahead)
+	    (void) next1, (void) next2, (void) shingle;
+	    if (last->nameHash < prev->nameHash)
+		continue;
+#endif
+	    // fall through
+	case 6:
+	    Pop(nstack-2);
 	    break;
 	default:
 	    assert(!"possible");
