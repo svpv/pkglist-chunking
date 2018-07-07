@@ -47,3 +47,7 @@ comm -13 {old,new}-src.chunks >missing-src.chunks
 echo total $bytes bytes $(wc -l <new-src.chunks) chunks $(wc -l <common-src.chunks) common
 echo $(wc -l <missing-src.chunks) missing chunks \
      $(cut -f2 missing-src.chunks |perl -MList::Util=sum -ln0 -e 'print sum(split)') compressed bytes
+if [ -n "$dict" ]; then
+    dictbytes=$(zstd -19 <$dict |wc -c)
+    echo total compressed chunks + compressed dictionary = $((bytes+dictbytes)) bytes
+fi

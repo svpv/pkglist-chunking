@@ -1,5 +1,6 @@
 #!/bin/sh -efux
 
+OLDrepo=http://ftp.altlinux.org/pub/distributions/archive/sisyphus/date/2017/07/05/
 oldrepo=http://ftp.altlinux.org/pub/distributions/archive/sisyphus/date/2018/06/05/
 newrepo=http://ftp.altlinux.org/pub/distributions/archive/sisyphus/date/2018/07/05/
 
@@ -12,6 +13,7 @@ DL {old-x86_64-,$oldrepo/x86_64/base/}pkglist.classic.xz
 DL {new-x86_64-,$newrepo/x86_64/base/}pkglist.classic.xz
 DL {old-noarch-,$oldrepo/noarch/base/}pkglist.classic.xz
 DL {new-noarch-,$newrepo/noarch/base/}pkglist.classic.xz
+DL {OLD-,$OLDrepo/x86_64/base/}srclist.classic.xz
 DL {old-,$oldrepo/x86_64/base/}srclist.classic.xz
 DL {new-,$newrepo/x86_64/base/}srclist.classic.xz
 

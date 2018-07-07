@@ -1,4 +1,4 @@
 #!/bin/sh -efu
 gcc -g -O2 -Wall -D_GNU_SOURCE train-srclist.c -lt1ha -lzstd -o train-srclist
 # The dictionary should be train on the old state.
-xz -d <old-srclist.classic.xz |./train-srclist
+xz -d <OLD-srclist.classic.xz |./train-srclist

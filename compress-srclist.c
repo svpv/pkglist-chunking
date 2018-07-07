@@ -48,13 +48,11 @@ int main(int argc, char **argv)
 
     ZSTD_CDict *cdict = NULL;
     if (dictFile) {
-	char buf[(128<<10)+1];
+	char buf[(1<<20)+1];
 	int fd = open(dictFile, O_RDONLY);
 	assert(fd);
 	ssize_t ret = xread(fd, buf, sizeof buf);
 	assert(ret > 0);
-	// Dictionaries should be smaller that 128K, otherwise literal stats
-	// for Huffman coding in the first 128K block wouldn't make sense.
 	assert(ret < sizeof buf);
 	cdict = ZSTD_createCDict(buf, ret, level);
 	assert(cdict);

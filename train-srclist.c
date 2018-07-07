@@ -66,7 +66,7 @@ int main()
 	.nbThreads = 2,
 	.zParams.notificationLevel = 3,
     };
-    char dict[112<<10];
+    char dict[512<<10];
     size_t dictSize = ZDICT_optimizeTrainFromBuffer_cover(dict, sizeof dict,
 	    samples.samplesBuffer, samples.samplesSizes, samples.nbSamples,
 	    &params);
