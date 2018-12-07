@@ -1,14 +1,37 @@
 #!/bin/sh -efu
-total=$(wc -l <new-src.list)
-common=$(comm -12 {old,new}-src.list |wc -l)
-echo srpms: total $total common $common \
-    $(perl -e 'printf "%.2f", 100*shift()/shift' $common $total)%
-gcc -g -Wall -O2 chunk-srclist.c -lt1ha -o chunk-srclist
-./chunk-srclist <old-src.list >old-src.chunks
-./chunk-srclist <new-src.list >new-src.chunks
-sort -u -o old-src.chunks{,}
-sort -u -o new-src.chunks{,}
-total=$(wc -l <new-src.chunks)
-common=$(comm -12 {old,new}-src.chunks |wc -l)
-echo chunks: total $total common $common \
-    $(perl -e 'printf "%.2f", 100*shift()/shift' $common $total)%
+gcc -g -O2 -Wall chunk-srclist.c -o chunk-srclist -lt1ha
+mkdir -p tmp
+for mon in `seq 1 12`; do
+    mon=`printf %02d $mon`
+    for arch in x86_64 noarch; do
+	./chunk-srclist <data/$mon-$arch-src.list >tmp/$mon-$arch-src.chunks
+    done
+done
+
+TotalRecs=0
+TotalChunks=0
+MissingRecs=0
+MissingChunks=0
+
+mon0=01
+for mon1 in `seq 2 12`; do
+    mon1=`printf %02d $mon1`
+    for arch in x86_64 noarch; do
+	total=`wc -l <data/$mon1-$arch-src.list`
+	common=`comm -12 data/{$mon0,$mon1}-$arch-src.list |wc -l`
+	let TotalRecs+=total
+	let MissingRecs+=total-common
+	total=`wc -l <tmp/$mon1-$arch-src.chunks`
+	common=`comm -12 tmp/{$mon0,$mon1}-$arch-src.chunks |wc -l`
+	let TotalChunks+=total
+	let MissingChunks+=total-common
+    done
+    mon0=$mon1
+done
+
+echo $(perl -e 'printf "%.2f", shift()/shift' $TotalRecs $TotalChunks) \
+    records per chunk
+echo TotalRecs=$TotalRecs MissingRecs=$MissingRecs \
+    $(perl -e 'printf "%.2f", 100*shift()/shift' $MissingRecs $TotalRecs)%
+echo TotalChunks=$TotalChunks MissingChunks=$MissingChunks \
+    $(perl -e 'printf "%.2f", 100*shift()/shift' $MissingChunks $TotalChunks)%
