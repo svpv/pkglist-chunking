@@ -3,7 +3,9 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <assert.h>
+#include <unistd.h>
 #include <errno.h>
+#include <sys/auxv.h>
 #include <t1ha.h>
 
 static char *read1(void)
@@ -26,7 +28,7 @@ static char *read1(void)
     return line;
 }
 
-int main()
+int main(int argc, char **argv)
 {
     struct srpm {
 	char *srpm;
@@ -52,6 +54,22 @@ int main()
 	memmove(q, q + n, nq * sizeof q[0]);
     }
 
+    int ha = 0;
+    int opt;
+    while ((opt = getopt(argc, argv, "h:")) != -1)
+	switch (opt) {
+	case 'h':
+	    ha = atoi(optarg);
+	    assert(ha || *optarg == '0');
+	    break;
+	default:
+	    assert(!!!"unknown option");
+	}
+
+    uint64_t seed = 0xe220a8397b1dcdaf;
+    for (int i = 0; i < ha; i++)
+	seed = seed * 6364136223846793005ULL + 1442695040888963407ULL;
+
     uint64_t srpmHash(char *srpm)
     {
 	char *dash1 = strrchr(srpm, '-');
@@ -59,7 +77,7 @@ int main()
 	*dash1 = '\0';
 	char *dash2 = strrchr(srpm, '-');
 	assert(dash2);
-	uint64_t h = t1ha(srpm, dash2 - srpm, 0);
+	uint64_t h = t1ha2_atonce(srpm, dash2 - srpm, seed);
 	*dash1 = '-';
 	return h;
     }
