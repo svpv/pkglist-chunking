@@ -32,24 +32,24 @@ int main()
 	char *srpm;
 	uint64_t hash;
     };
-    struct srpm stack[8];
-    size_t nstack = 0;
+    struct srpm q[8];
+    size_t nq = 0;
 
     void Pop(size_t n)
     {
 	assert(n > 0);
-	assert(nstack >= n);
+	assert(nq >= n);
 	for (size_t i = 0; i < n - 1; i++) {
-	    char *s = stack[i].srpm;
+	    char *s = q[i].srpm;
 	    fputs(s, stdout);
 	    free(s);
 	    putchar(' ');
 	}
-	char *s = stack[n-1].srpm;
+	char *s = q[n-1].srpm;
 	puts(s);
 	free(s);
-	nstack -= n;
-	memmove(stack, stack + n, nstack * sizeof stack[0]);
+	nq -= n;
+	memmove(q, q + n, nq * sizeof q[0]);
     }
 
     uint64_t srpmHash(char *srpm)
@@ -64,26 +64,25 @@ int main()
 	return h;
     }
 
-    while ((stack[nstack].srpm = read1()) != NULL) {
-	stack[nstack].hash = srpmHash(stack[nstack].srpm);
-	nstack++;
-	switch (nstack) {
+    while ((q[nq].srpm = read1()) != NULL) {
+	q[nq].hash = srpmHash(q[nq].srpm);
+	nq++;
+	switch (nq) {
 	case 1:
 	    break;
 	case 2:
 	case 3:
-	    if (stack[nstack-1].hash < stack[nstack-2].hash)
+	    if (q[nq-1].hash < q[nq-2].hash)
 		break;
-	    // fall through
 	case 4:
-	    Pop(nstack);
+	    Pop(nq);
 	    break;
 	default:
 	    assert(!"possible");
 	}
     }
-    if (nstack)
-	Pop(nstack);
+    if (nq)
+	Pop(nq);
 
     return 0;
 }
