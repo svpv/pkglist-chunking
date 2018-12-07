@@ -86,17 +86,14 @@ int main(int argc, char **argv)
 	q[nq].hash = srpmHash(q[nq].srpm);
 	nq++;
 	switch (nq) {
-	case 1:
-	    break;
-	case 2:
-	case 3:
-	    if (q[nq-1].hash < q[nq-2].hash)
-		break;
-	case 4:
-	    Pop(nq);
-	    break;
-	default:
-	    assert(!"possible");
+	case 1: case 2: break;
+	case 3: if (q[1].hash > q[2].hash) Pop(2); break;
+	case 4: if (q[2].hash > q[3].hash) Pop(3); break;
+	case 5: if (q[3].hash > q[4].hash) Pop(4); break;
+	case 6: if (q[4].hash > q[5].hash) Pop(5); break;
+	case 7: if (q[5].hash > q[6].hash) Pop(6); break;
+	case 8: if (q[6].hash > q[7].hash) Pop(7); else Pop(8); break;
+	default: assert(!"possible");
 	}
     }
     if (nq)
