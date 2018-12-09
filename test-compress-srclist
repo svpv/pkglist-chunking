@@ -1,35 +1,4 @@
 #!/bin/sh -efu
-level= dict=
-argv=$(getopt -n "${0##*/}" -o 1::2::3::4::5::6::7::8::9::D: -- "$@")
-eval set -- "$argv"
-while :; do
-    case "$1" in
-	-1) level=$1
-	    case "$2" in
-		'') ;;
-		1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9)
-		    level=$1$2 ;;
-		*)
-		    echo >&2 "bad $1$2 arg"
-		    exit 2 ;;
-	    esac
-	    shift 2 ;;
-	-2 | -3 | -4 | -5 | -6 | -7 | -8 | -9)
-	    level=$1
-	    if [ -n "$2" ]; then
-		echo >&2 "levels > 19 not supported"
-		exit 1
-	    fi
-	    shift 2 ;;
-	-D) dict=${2:?}
-	    shift 2 ;;
-	--) shift
-	    break ;;
-	*)  echo "${0##*/}: invalid option $1"
-	    exit 2 ;;
-    esac
-done
-args=($level ${dict:+-D} ${dict:+"$dict"})
 gcc -g -O2 -Wall -D_GNU_SOURCE -Iqsort compress-srclist.c -lt1ha -lzstd -o compress-srclist
 
 mkdir -p tmp
@@ -39,8 +8,8 @@ Compress1()
     local mon=$1 arch=$2
     md5a=$(xz -d <data/$mon-$arch-srclist.classic.xz |md5sum)
     xz -d <data/$mon-$arch-srclist.classic.xz |
-    ./compress-srclist "${args[@]}" >tmp/$mon-$arch.src.zst 2>tmp/$mon-$arch.src.chunks
-    md5b=$(zstd -d "${args[@]}" <tmp/$mon-$arch.src.zst |md5sum)
+    ./compress-srclist -19 -D tmp/$arch.src.dict >tmp/$mon-$arch.src.zst 2>tmp/$mon-$arch.src.chunks
+    md5b=$(zstd -d -D tmp/$arch.src.dict <tmp/$mon-$arch.src.zst |md5sum)
     if [ "$md5a" != "$md5b" ]; then
 	echo >&2 "cannot decompress the output"
 	exit 1
@@ -48,43 +17,37 @@ Compress1()
     sort -u -o tmp/$mon-$arch.src.chunks{,}
 }
 
-for mon0 in 01; do
-    for arch in x86_64 noarch; do
+Arch1()
+{
+    local arch="$1"
+    local mon0 mon1
+    for mon0 in 01; do
 	Compress1 $mon0 $arch
-	let totalRaw_$arch=0 ||:
-	let totalBytes_$arch=0 ||:
-	let totalChunks_$arch=0 ||:
-	let missingBytes_$arch=0 ||:
-	let missingChunks_$arch=0 ||:
+	totalRaw=0
+	totalBytes=0
+	totalChunks=0
+	missingBytes=0
+	missingChunks=0
     done
-done
-for mon1 in `seq 2 12`; do
-    mon1=`printf %02d $mon1`
-    for arch in x86_64 noarch; do
+    for mon1 in `seq 2 12`; do
+	mon1=`printf %02d $mon1`
 	Compress1 $mon1 $arch
-	let totalRaw_$arch+=$(xz -d <data/$mon1-$arch-srclist.classic.xz |wc -c)
-	let totalBytes_$arch+=$(wc -c <tmp/$mon1-$arch.src.zst)
-	let totalChunks_$arch+=$(wc -l <tmp/$mon1-$arch.src.chunks)
+	let totalRaw+=$(xz -d <data/$mon1-$arch-srclist.classic.xz |wc -c)
+	let totalBytes+=$(wc -c <tmp/$mon1-$arch.src.zst)
+	let totalChunks+=$(wc -l <tmp/$mon1-$arch.src.chunks)
 	comm -13 tmp/{$mon0,$mon1}-$arch.src.chunks >tmp/$mon1-$arch.src.missing.chunks
-	let missingBytes_$arch+=$(cut -f2 <tmp/$mon1-$arch.src.missing.chunks |
+	let missingBytes+=$(cut -f2 <tmp/$mon1-$arch.src.missing.chunks |
 				  perl -MList::Util=sum -ln0 -e 'print sum split')
-	let missingChunks_$arch+=$(wc -l <tmp/$mon1-$arch.src.missing.chunks)
+	let missingChunks+=$(wc -l <tmp/$mon1-$arch.src.missing.chunks)
+	mon0=$mon1
     done
-    mon0=$mon1
-done
+    dictBytes=$(zstd -19 <tmp/$arch.src.dict |wc -c)
+    echo "$arch $((totalRaw/11))->$((totalBytes/11+dictBytes))  missing:" \
+	$(perl -e 'printf "%.2f", 100*shift()/shift' ${missingBytes} ${totalBytes})% bytes \
+	$(perl -e 'printf "%.2f", 100*shift()/shift' ${missingChunks} ${totalChunks})% chunks
+}
 
-dictbytes=0
-if [ -n "$dict" ]; then
-    dictbytes=$(zstd -19 <$dict |wc -c)
-fi
+Arch1 x86_64 &
+Arch1 noarch
+wait $!
 
-for arch in x86_64 noarch; do
-    totalRaw=totalRaw_$arch
-    totalBytes=totalBytes_$arch
-    totalChunks=totalChunks_$arch
-    missingBytes=missingBytes_$arch
-    missingChunks=missingChunks_$arch
-    echo "$arch $((totalRaw/11))->$((totalBytes/11+dictbytes))  missing:" \
-	$(perl -e 'printf "%.2f", 100*shift()/shift' ${!missingBytes} ${!totalBytes})% bytes \
-	$(perl -e 'printf "%.2f", 100*shift()/shift' ${!missingChunks} ${!totalChunks})% chunks
-done
