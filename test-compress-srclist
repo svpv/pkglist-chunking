@@ -31,23 +31,60 @@ while :; do
 done
 args=($level ${dict:+-D} ${dict:+"$dict"})
 gcc -g -O2 -Wall -D_GNU_SOURCE -Iqsort compress-srclist.c -lt1ha -lzstd -o compress-srclist
-md5a=$(xz -d <old-srclist.classic.xz |md5sum)
-md5b=$(xz -d <old-srclist.classic.xz |./compress-srclist "${args[@]}" 2>/dev/null \
-				     |zstd -d "${args[@]}" |md5sum)
-if [ "$md5a" != "$md5b" ]; then
-    echo >&2 "cannot decompress the output"
-    exit 1
-fi
-        xz -d <old-srclist.classic.xz |./compress-srclist "${args[@]}" 2>old-src.chunks >/dev/null
-bytes=$(xz -d <new-srclist.classic.xz |./compress-srclist "${args[@]}" 2>new-src.chunks |wc -c)
-sort -u -o old-src.chunks{,}
-sort -u -o new-src.chunks{,}
-comm -12 {old,new}-src.chunks >common-src.chunks
-comm -13 {old,new}-src.chunks >missing-src.chunks
-echo total $bytes bytes $(wc -l <new-src.chunks) chunks $(wc -l <common-src.chunks) common
-echo $(wc -l <missing-src.chunks) missing chunks \
-     $(cut -f2 missing-src.chunks |perl -MList::Util=sum -ln0 -e 'print sum(split)') compressed bytes
+
+mkdir -p tmp
+
+Compress1()
+{
+    local mon=$1 arch=$2
+    md5a=$(xz -d <data/$mon-$arch-srclist.classic.xz |md5sum)
+    xz -d <data/$mon-$arch-srclist.classic.xz |
+    ./compress-srclist "${args[@]}" >tmp/$mon-$arch.src.zst 2>tmp/$mon-$arch.src.chunks
+    md5b=$(zstd -d "${args[@]}" <tmp/$mon-$arch.src.zst |md5sum)
+    if [ "$md5a" != "$md5b" ]; then
+	echo >&2 "cannot decompress the output"
+	exit 1
+    fi
+    sort -u -o tmp/$mon-$arch.src.chunks{,}
+}
+
+for mon0 in 01; do
+    for arch in x86_64 noarch; do
+	Compress1 $mon0 $arch
+	let totalRaw_$arch=0 ||:
+	let totalBytes_$arch=0 ||:
+	let totalChunks_$arch=0 ||:
+	let missingBytes_$arch=0 ||:
+	let missingChunks_$arch=0 ||:
+    done
+done
+for mon1 in `seq 2 12`; do
+    mon1=`printf %02d $mon1`
+    for arch in x86_64 noarch; do
+	Compress1 $mon1 $arch
+	let totalRaw_$arch+=$(xz -d <data/$mon1-$arch-srclist.classic.xz |wc -c)
+	let totalBytes_$arch+=$(wc -c <tmp/$mon1-$arch.src.zst)
+	let totalChunks_$arch+=$(wc -l <tmp/$mon1-$arch.src.chunks)
+	comm -13 tmp/{$mon0,$mon1}-$arch.src.chunks >tmp/$mon1-$arch.src.missing.chunks
+	let missingBytes_$arch+=$(cut -f2 <tmp/$mon1-$arch.src.missing.chunks |
+				  perl -MList::Util=sum -ln0 -e 'print sum split')
+	let missingChunks_$arch+=$(wc -l <tmp/$mon1-$arch.src.missing.chunks)
+    done
+    mon0=$mon1
+done
+
+dictbytes=0
 if [ -n "$dict" ]; then
     dictbytes=$(zstd -19 <$dict |wc -c)
-    echo total compressed chunks + compressed dictionary = $((bytes+dictbytes)) bytes
 fi
+
+for arch in x86_64 noarch; do
+    totalRaw=totalRaw_$arch
+    totalBytes=totalBytes_$arch
+    totalChunks=totalChunks_$arch
+    missingBytes=missingBytes_$arch
+    missingChunks=missingChunks_$arch
+    echo "$arch $((totalRaw/11))->$((totalBytes/11+dictbytes))  missing:" \
+	$(perl -e 'printf "%.2f", 100*shift()/shift' ${!missingBytes} ${!totalBytes})% bytes \
+	$(perl -e 'printf "%.2f", 100*shift()/shift' ${!missingChunks} ${!totalChunks})% chunks
+done
