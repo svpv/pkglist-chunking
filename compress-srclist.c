@@ -59,34 +59,34 @@ int main(int argc, char **argv)
 	assert(cdict);
     }
 
-    struct srpmBlob stack[8];
-    size_t nstack = 0;
+    struct srpmBlob q[8];
+    size_t nq = 0;
 
     void Pop(size_t n)
     {
 	assert(n > 0);
-	assert(nstack >= n);
+	assert(nq >= n);
 
-	size_t totalSize = stack[0].blobSize;
+	size_t totalSize = q[0].blobSize;
 	for (size_t i = 1; i < n; i++)
-	    totalSize += stack[i].blobSize;
-	size_t nameoff = stack[0].name - (char *) stack[0].blob;
-	stack[0].blob = realloc(stack[0].blob, totalSize + ZSTD_COMPRESSBOUND(totalSize));
-	assert(stack[0].blob);
-	stack[0].name = stack[0].blob + nameoff;
+	    totalSize += q[i].blobSize;
+	size_t nameoff = q[0].name - (char *) q[0].blob;
+	q[0].blob = realloc(q[0].blob, totalSize + ZSTD_COMPRESSBOUND(totalSize));
+	assert(q[0].blob);
+	q[0].name = q[0].blob + nameoff;
 
-	void *p = stack[0].blob + stack[0].blobSize;
+	void *p = q[0].blob + q[0].blobSize;
 	for (int i = 1; i < n; i++)
-	    p = mempcpy(p, stack[i].blob, stack[i].blobSize);
-	assert(p - stack[0].blob == totalSize);
+	    p = mempcpy(p, q[i].blob, q[i].blobSize);
+	assert(p - q[0].blob == totalSize);
 
 	size_t zsize;
 	if (cdict)
 	    zsize = ZSTD_compress_usingCDict(cctx, p, ZSTD_COMPRESSBOUND(totalSize),
-					     stack[0].blob, totalSize, cdict);
+					     q[0].blob, totalSize, cdict);
 	else
 	    zsize = ZSTD_compressCCtx(cctx, p, ZSTD_COMPRESSBOUND(totalSize),
-				      stack[0].blob, totalSize, level);
+				      q[0].blob, totalSize, level);
 	assert(zsize > 0);
 	assert(zsize <= ZSTD_COMPRESSBOUND(totalSize));
 
@@ -95,66 +95,35 @@ int main(int argc, char **argv)
 
 	uint64_t hi;
 	uint64_t lo = t1ha2_atonce128(&hi, p, zsize, 0);
-	fprintf(stderr, "%016" PRIx64 "%016" PRIx64 "\t%zu\t%s", lo, hi, zsize, stack[0].name);
+	fprintf(stderr, "%016" PRIx64 "%016" PRIx64 "\t%zu\t%s", lo, hi, zsize, q[0].name);
 	for (size_t i = 1; i < n; i++) {
-	    fprintf(stderr, " %s", stack[i].name);
-	    free(stack[i].blob);
-	    free(stack[i].shi);
+	    fprintf(stderr, " %s", q[i].name);
+	    free(q[i].blob);
+	    free(q[i].shi);
 	}
 	fprintf(stderr, "\n");
-	free(stack[0].blob);
-	free(stack[0].shi);
+	free(q[0].blob);
+	free(q[0].shi);
 
-	nstack -= n;
-	memmove(stack, stack + n, nstack * sizeof stack[0]);
+	nq -= n;
+	memmove(q, q + n, nq * sizeof q[0]);
     }
 
-#if 0
-    // One header per chunk.
-    while (readSrpmBlob(stack))
-	Pop(++nstack);
-#else
     // 2+ headers per chunk.
-    while (readSrpmBlob(&stack[nstack])) {
-	nstack++;
-	struct srpmBlob *prev, *last, *next1, *next2;
-	switch (nstack) {
-	case 1:
-	case 2:
-	case 3:
-	    break;
-	case 4:
-	case 5:
-	    // have at least 2 + 2 lookahead
-	    prev = &stack[nstack-4];
-	    last = &stack[nstack-3];
-	    next1 = &stack[nstack-2];
-	    next2 = &stack[nstack-1];
-#if 0
-	    // shingling: where does the next1 item stick to?
-	    (void) prev;
-	    if (!last->shi) last->shi = shingle(last->blob, last->blobSize);
-	    if (!next1->shi) next1->shi = shingle(next1->blob, next1->blobSize);
-	    if (!next2->shi) next2->shi = shingle(next2->blob, next2->blobSize);
-	    if (shimilar(last->shi, next1->shi) > shimilar(next1->shi, next2->shi))
-		continue;
-#else
-	    // content-aware probabilistic chunking,
-	    // prev..last window (no need for lookahead)
-	    (void) next1, (void) next2, (void) shingle;
-	    if (last->nameHash < prev->nameHash)
-		continue;
-#endif
-	    // fall through
-	case 6:
-	    Pop(nstack-2);
-	    break;
-	default:
-	    assert(!"possible");
+    while (readSrpmBlob(&q[nq])) {
+	nq++;
+	switch (nq) {
+	case 1: case 2: break;
+	case 3: if (q[1].nameHash > q[2].nameHash) Pop(2); break;
+	case 4: if (q[2].nameHash > q[3].nameHash) Pop(3); break;
+	case 5: if (q[3].nameHash > q[4].nameHash) Pop(4); break;
+	case 6: if (q[4].nameHash > q[5].nameHash) Pop(5); break;
+	case 7: if (q[5].nameHash > q[6].nameHash) Pop(6); break;
+	case 8: if (q[6].nameHash > q[7].nameHash) Pop(7); else Pop(8); break;
+	default: assert(!"possible");
 	}
     }
-    if (nstack)
-	Pop(nstack);
-#endif
+    if (nq)
+	Pop(nq);
     return 0;
 }
