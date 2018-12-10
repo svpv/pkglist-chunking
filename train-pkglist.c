@@ -2,7 +2,7 @@
 #define ZDICT_STATIC_LINKING_ONLY
 #include <zdict.h>
 #include "xwrite.h"
-#include "srpmblob.h"
+#include "rpmblob.h"
 
 struct samples {
     size_t nbSamples;
@@ -12,7 +12,7 @@ struct samples {
 
 static void load(void)
 {
-    struct srpmBlob q[8];
+    struct rpmBlob q[8];
     size_t nq = 0;
 
     void *p = samples.samplesBuffer;
@@ -33,7 +33,7 @@ static void load(void)
 	memmove(q, q + n, nq * sizeof q[0]);
     }
 
-    while (readSrpmBlob(&q[nq])) {
+    while (readRpmBlob(&q[nq])) {
 	nq++;
 	switch (nq) {
 	case 1: case 2: break;

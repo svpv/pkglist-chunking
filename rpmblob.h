@@ -28,15 +28,16 @@
 #include <t1ha.h>
 #include "xread.h"
 
-struct srpmBlob {
+struct rpmBlob {
     void *blob;
     size_t blobSize;
     const char *name;
+    const char *srpm;
     uint64_t nameHash;
     struct shingles *shi;
 };
 
-static bool readSrpmBlob(struct srpmBlob *b)
+static bool readRpmBlob(struct rpmBlob *b)
 {
     unsigned lead[4];
     ssize_t ret = xread(0, lead, sizeof lead);
@@ -73,7 +74,15 @@ static bool readSrpmBlob(struct srpmBlob *b)
     assert(off < dl);
     char *data = (void *) (ee + il);
     b->name = &data[off];
-    b->nameHash = t1ha(b->name, strlen(b->name), 0);
+    struct HeaderEntry *e = ee + 2, *eend = ee + il;
+    for (; e < eend; e++)
+	if (e->tag == htonl(RPMTAG_SOURCERPM))
+	    break;
+    assert(e < eend);
+    off = ntohl(e->off);
+    assert(off < dl);
+    b->srpm = &data[off];
+    b->nameHash = t1ha(b->srpm, strlen(b->srpm), 0);
     b->shi = NULL;
     return true;
 }
