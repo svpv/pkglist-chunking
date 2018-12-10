@@ -9,7 +9,7 @@
 #include <zstd.h>
 #include "xread.h"
 #include "xwrite.h"
-#include "srpmblob.h"
+#include "rpmblob.h"
 #include "shingle.h"
 
 int main(int argc, char **argv)
@@ -59,7 +59,7 @@ int main(int argc, char **argv)
 	assert(cdict);
     }
 
-    struct srpmBlob q[8];
+    struct rpmBlob q[8];
     size_t nq = 0;
 
     void Pop(size_t n)
@@ -110,7 +110,7 @@ int main(int argc, char **argv)
     }
 
     // 2+ headers per chunk.
-    while (readSrpmBlob(&q[nq])) {
+    while (readRpmBlob(&q[nq])) {
 	nq++;
 	switch (nq) {
 	case 1: case 2: break;
