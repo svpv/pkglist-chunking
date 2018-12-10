@@ -30,11 +30,12 @@ static char *read1(void)
 
 int main(int argc, char **argv)
 {
-    struct srpm {
+    struct rpm {
+	char *rpm;
 	char *srpm;
 	uint64_t nameHash;
     };
-    struct srpm q[8];
+    struct rpm q[8];
     size_t nq = 0;
 
     void Pop(size_t n)
@@ -42,12 +43,12 @@ int main(int argc, char **argv)
 	assert(n > 0);
 	assert(nq >= n);
 	for (size_t i = 0; i < n - 1; i++) {
-	    char *s = q[i].srpm;
+	    char *s = q[i].rpm;
 	    fputs(s, stdout);
 	    free(s);
 	    putchar(' ');
 	}
-	char *s = q[n-1].srpm;
+	char *s = q[n-1].rpm;
 	puts(s);
 	free(s);
 	nq -= n;
@@ -82,7 +83,9 @@ int main(int argc, char **argv)
 	return h;
     }
 
-    while ((q[nq].srpm = read1()) != NULL) {
+    while ((q[nq].rpm = read1()) != NULL) {
+	char *tab = strchr(q[nq].rpm, '\t'); assert(tab);
+	*tab = '\0'; q[nq].srpm = tab + 1;
 	q[nq].nameHash = nameHash(q[nq].srpm);
 	nq++;
 	switch (nq) {
