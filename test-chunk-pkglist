@@ -1,0 +1,41 @@
+#!/bin/sh -efu
+gcc -g -O2 -Wall chunk-srclist.c -o chunk-srclist -lt1ha
+mkdir -p tmp
+for mon in `seq 1 12`; do
+    mon=`printf %02d $mon`
+    for arch in x86_64 noarch; do
+	for ha in `seq 0 9`; do
+	    ./chunk-srclist -h$ha <data/$mon-$arch-src.list >tmp/$mon-$arch-ha$ha-src.chunks
+	done
+    done
+done
+
+TotalRecs=0
+TotalChunks=0
+MissingRecs=0
+MissingChunks=0
+
+mon0=01
+for mon1 in `seq 2 12`; do
+    mon1=`printf %02d $mon1`
+    for arch in x86_64 noarch; do
+	total=`wc -l <data/$mon1-$arch-src.list`
+	common=`comm -12 data/{$mon0,$mon1}-$arch-src.list |wc -l`
+	let TotalRecs+=total
+	let MissingRecs+=total-common
+	for ha in `seq 0 9`; do
+	    total=`wc -l <tmp/$mon1-$arch-ha$ha-src.chunks`
+	    common=`comm -12 tmp/{$mon0,$mon1}-$arch-ha$ha-src.chunks |wc -l`
+	    let TotalChunks+=total
+	    let MissingChunks+=total-common
+	done
+    done
+    mon0=$mon1
+done
+
+echo $(perl -e 'printf "%.2f", 10*shift()/shift' $TotalRecs $TotalChunks) \
+    records per chunk
+echo $(perl -e 'printf "%.2f", 100*shift()/shift' $MissingRecs $TotalRecs)% \
+    missing records
+echo $(perl -e 'printf "%.2f", 100*shift()/shift' $MissingChunks $TotalChunks)% \
+    missing chunks
