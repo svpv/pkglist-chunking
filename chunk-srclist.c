@@ -32,7 +32,7 @@ int main(int argc, char **argv)
 {
     struct srpm {
 	char *srpm;
-	uint64_t hash;
+	uint64_t nameHash;
     };
     struct srpm q[8];
     size_t nq = 0;
@@ -70,7 +70,7 @@ int main(int argc, char **argv)
     for (int i = 0; i < ha; i++)
 	seed = seed * 6364136223846793005ULL + 1442695040888963407ULL;
 
-    uint64_t srpmHash(char *srpm)
+    uint64_t nameHash(char *srpm)
     {
 	char *dash1 = strrchr(srpm, '-');
 	assert(dash1);
@@ -83,16 +83,16 @@ int main(int argc, char **argv)
     }
 
     while ((q[nq].srpm = read1()) != NULL) {
-	q[nq].hash = srpmHash(q[nq].srpm);
+	q[nq].nameHash = nameHash(q[nq].srpm);
 	nq++;
 	switch (nq) {
 	case 1: case 2: break;
-	case 3: if (q[1].hash > q[2].hash) Pop(2); break;
-	case 4: if (q[2].hash > q[3].hash) Pop(3); break;
-	case 5: if (q[3].hash > q[4].hash) Pop(4); break;
-	case 6: if (q[4].hash > q[5].hash) Pop(5); break;
-	case 7: if (q[5].hash > q[6].hash) Pop(6); break;
-	case 8: if (q[6].hash > q[7].hash) Pop(7); else Pop(8); break;
+	case 3: if (q[1].nameHash > q[2].nameHash) Pop(2); break;
+	case 4: if (q[2].nameHash > q[3].nameHash) Pop(3); break;
+	case 5: if (q[3].nameHash > q[4].nameHash) Pop(4); break;
+	case 6: if (q[4].nameHash > q[5].nameHash) Pop(5); break;
+	case 7: if (q[5].nameHash > q[6].nameHash) Pop(6); break;
+	case 8: if (q[6].nameHash > q[7].nameHash) Pop(7); else Pop(8); break;
 	default: assert(!"possible");
 	}
     }
