@@ -59,7 +59,7 @@ int main(int argc, char **argv)
 	assert(cdict);
     }
 
-    struct rpmBlob q[8];
+    struct rpmBlob q[9];
     size_t nq = 0;
 
     void Pop(size_t n)
@@ -114,12 +114,21 @@ int main(int argc, char **argv)
 	nq++;
 	switch (nq) {
 	case 1: case 2: break;
-	case 3: if (q[1].nameHash > q[2].nameHash) Pop(2); break;
-	case 4: if (q[2].nameHash > q[3].nameHash) Pop(3); break;
-	case 5: if (q[3].nameHash > q[4].nameHash) Pop(4); break;
-	case 6: if (q[4].nameHash > q[5].nameHash) Pop(5); break;
-	case 7: if (q[5].nameHash > q[6].nameHash) Pop(6); break;
-	case 8: if (q[6].nameHash > q[7].nameHash) Pop(7); else Pop(8); break;
+  has3: case 3: if (q[1].nameHash > q[2].nameHash) Pop(2); break;
+  has4: case 4: if (q[2].nameHash > q[3].nameHash) Pop(3); break;
+  has5: case 5: if (q[3].nameHash > q[4].nameHash) Pop(4); break;
+  has6: case 6: if (q[4].nameHash > q[5].nameHash) Pop(5); break;
+  has7: case 7: if (q[5].nameHash > q[6].nameHash) Pop(6); break;
+	case 8: if (q[6].nameHash > q[7].nameHash) Pop(7); break;
+	case 9: if (q[7].nameHash != q[8].nameHash) Pop(8);
+	   else if (q[6].nameHash != q[7].nameHash) Pop(7);
+	   else if (q[5].nameHash != q[6].nameHash) { Pop(6); goto has3; }
+	   else if (q[4].nameHash != q[5].nameHash) { Pop(5); goto has4; }
+	   else if (q[3].nameHash != q[4].nameHash) { Pop(4); goto has5; }
+	   else if (q[2].nameHash != q[3].nameHash) { Pop(3); goto has6; }
+	   else if (q[1].nameHash != q[2].nameHash) { Pop(2); goto has7; }
+	   else Pop(7);
+	   break;
 	default: assert(!"possible");
 	}
     }
