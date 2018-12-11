@@ -48,6 +48,7 @@ int main(int argc, char **argv)
     assert(cctx);
 
     ZSTD_CDict *cdict = NULL;
+    ZSTD_CDict *fastdict = NULL;
     if (dictFile) {
 	char buf[(1<<20)+1];
 	int fd = open(dictFile, O_RDONLY);
@@ -57,6 +58,7 @@ int main(int argc, char **argv)
 	assert(ret < sizeof buf);
 	cdict = ZSTD_createCDict(buf, ret, level);
 	assert(cdict);
+	fastdict = level > 6 ? ZSTD_createCDict(buf, ret, 6) : cdict;
     }
 
     struct rpmBlob q[9];
@@ -109,18 +111,57 @@ int main(int argc, char **argv)
 	memmove(q, q + n, nq * sizeof q[0]);
     }
 
+    size_t fastCompress(const void *in, size_t isize, void *out, size_t osize)
+    {
+	size_t zsize;
+	if (fastdict)
+	    zsize = ZSTD_compress_usingCDict(cctx, out, osize, in, isize, cdict);
+	else
+	    zsize = ZSTD_compressCCtx(cctx, out, osize, in, isize, level > 6 ? 6: level);
+	assert(zsize > 0);
+	assert(zsize < INT32_MAX);
+	return zsize;
+    }
+
+    void PopX(size_t n)
+    {
+	if (q[n].nameHash == q[n+1].nameHash)
+	    return Pop(n);
+	size_t size12 = q[n-1].blobSize + q[n].blobSize;
+	size_t size23 = q[n].blobSize + q[n+1].blobSize;
+	size_t alloc = ZSTD_COMPRESSBOUND(size12 > size23 ? size12 : size23);
+	void *buf = malloc(alloc); assert(buf);
+	size_t price1 = fastCompress(q[n-1].blob, q[n-1].blobSize, buf, alloc);
+	size_t price3 = fastCompress(q[n+1].blob, q[n+1].blobSize, buf, alloc);
+	size_t nameoff = q[n-1].name - (char *) q[n-1].blob;
+	q[n-1].blob = realloc(q[n-1].blob, q[n-1].blobSize + q[n].blobSize); assert(q[n-1].blob);
+	q[n-1].name = q[n-1].blob + nameoff;
+	nameoff = q[n].name - (char *) q[n].blob;
+	q[n].blob = realloc(q[n].blob, q[n].blobSize + q[n+1].blobSize); assert(q[n].blob);
+	q[n].name = q[n].blob + nameoff;
+	memcpy(q[n-1].blob + q[n-1].blobSize, q[n].blob, q[n].blobSize);
+	memcpy(q[n].blob + q[n].blobSize, q[n+1].blob, q[n+1].blobSize);
+	size_t price12 = fastCompress(q[n-1].blob, size12, buf, alloc);
+	size_t price23 = fastCompress(q[n].blob, size23, buf, alloc);
+	double ratio = (price12 + price3) / (double)(price1 + price23);
+	if (ratio < 0.97)
+	    Pop(n+1);
+	else
+	    Pop(n);
+	free(buf);
+    }
+
     // 2+ headers per chunk.
     while (readRpmBlob(&q[nq])) {
-	nq++;
-	switch (nq) {
-	case 1: case 2: break;
-  has3: case 3: if (q[1].nameHash > q[2].nameHash) Pop(2); break;
-  has4: case 4: if (q[2].nameHash > q[3].nameHash) Pop(3); break;
-  has5: case 5: if (q[3].nameHash > q[4].nameHash) Pop(4); break;
-  has6: case 6: if (q[4].nameHash > q[5].nameHash) Pop(5); break;
-  has7: case 7: if (q[5].nameHash > q[6].nameHash) Pop(6); break;
-	case 8: if (q[6].nameHash > q[7].nameHash) Pop(7); break;
-	case 9: if (q[7].nameHash != q[8].nameHash) Pop(8);
+	switch (nq++) {
+	case 0: case 1: case 2: break;
+  has3: case 3: if (q[1].nameHash > q[2].nameHash) PopX(2); break;
+  has4: case 4: if (q[2].nameHash > q[3].nameHash) PopX(3); break;
+  has5: case 5: if (q[3].nameHash > q[4].nameHash) PopX(4); break;
+  has6: case 6: if (q[4].nameHash > q[5].nameHash) PopX(5); break;
+  has7: case 7: if (q[5].nameHash > q[6].nameHash) PopX(6); break;
+	case 8: if (q[6].nameHash > q[7].nameHash) PopX(7);
+	   else if (q[7].nameHash != q[8].nameHash) Pop(8);
 	   else if (q[6].nameHash != q[7].nameHash) Pop(7);
 	   else if (q[5].nameHash != q[6].nameHash) { Pop(6); goto has3; }
 	   else if (q[4].nameHash != q[5].nameHash) { Pop(5); goto has4; }
