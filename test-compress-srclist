@@ -43,6 +43,7 @@ Arch1()
     done
     dictBytes=$(zstd -19 <tmp/$arch.src.dict |wc -c)
     echo "$arch $((totalRaw/11))->$((totalBytes/11+dictBytes))  missing:" \
+	$((missingBytes/11)) \
 	$(perl -e 'printf "%.2f", 100*shift()/shift' ${missingBytes} ${totalBytes})% bytes \
 	$(perl -e 'printf "%.2f", 100*shift()/shift' ${missingChunks} ${totalChunks})% chunks
 }
