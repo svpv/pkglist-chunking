@@ -144,6 +144,8 @@ int main(int argc, char **argv)
 		assert(nq >= nu);
 		if (nq > 8)
 		    Pop(8);
+		else if (nu > 4)
+		    Pop(nq-1);
 	    }
 	}
 #else
