@@ -25,6 +25,7 @@ Arch1()
 	Compress1 $mon0 $arch
 	totalRaw=0
 	totalBytes=0
+	totalRecords=0
 	totalChunks=0
 	missingBytes=0
 	missingChunks=0
@@ -34,6 +35,7 @@ Arch1()
 	Compress1 $mon1 $arch
 	let totalRaw+=$(xz -d <data/$mon1-$arch-srclist.classic.xz |wc -c)
 	let totalBytes+=$(wc -c <tmp/$mon1-$arch.src.zst)
+	let totalRecords+=$(cut -f3 <tmp/$mon1-$arch.src.chunks |wc -w)
 	let totalChunks+=$(wc -l <tmp/$mon1-$arch.src.chunks)
 	comm -13 tmp/{$mon0,$mon1}-$arch.src.chunks >tmp/$mon1-$arch.src.missing.chunks
 	let missingBytes+=$(cut -f2 <tmp/$mon1-$arch.src.missing.chunks |
@@ -42,9 +44,13 @@ Arch1()
 	mon0=$mon1
     done
     dictBytes=$(zstd -19 <tmp/$arch.src.dict |wc -c)
-    echo "$arch $((totalRaw/11))->$((totalBytes/11+dictBytes))  missing:" \
+    echo $arch \
+	"$((totalRaw/11))->$((totalBytes/11+dictBytes)) bytes" \
+	"$((totalRecords/11))->$((totalChunks/11)) chunks" \
+	" missing:" \
 	$((missingBytes/11)) \
 	$(perl -e 'printf "%.2f", 100*shift()/shift' ${missingBytes} ${totalBytes})% bytes \
+	$((missingChunks/11)) \
 	$(perl -e 'printf "%.2f", 100*shift()/shift' ${missingChunks} ${totalChunks})% chunks
 }
 
