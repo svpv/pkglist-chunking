@@ -11,6 +11,7 @@
 #include "xwrite.h"
 #include "rpmblob.h"
 #include "shingle.h"
+#include "chunker.h"
 
 int main(int argc, char **argv)
 {
@@ -59,7 +60,7 @@ int main(int argc, char **argv)
 	assert(cdict);
     }
 
-    struct rpmBlob q[9];
+    struct rpmBlob q[16];
     size_t nq = 0, nu = 0;
 
     void Pop(size_t n)
@@ -113,10 +114,17 @@ int main(int argc, char **argv)
 	    nu += q[i-1].nameHash != q[i].nameHash;
     }
 
+    struct chunker *C = chunker_new();
+    assert(C);
+
     // 2+ headers per chunk.
     while (readRpmBlob(&q[nq])) {
 	nq++;
 #if 1
+	size_t n = chunker_add(C, q[nq-1].nameHash);
+	if (n)
+	    Pop(n);
+#elif 0
 	if (nq == 1)
 	    nu = 1;
 	else {

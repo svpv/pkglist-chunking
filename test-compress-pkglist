@@ -1,5 +1,5 @@
 #!/bin/sh -efu
-gcc -g -O2 -Wall -D_GNU_SOURCE -Iqsort compress-pkglist.c -lt1ha -lzstd -o compress-pkglist
+gcc -g -O2 -Wall -D_GNU_SOURCE -Iqsort compress-pkglist.c chunker.c -lt1ha -lzstd -o compress-pkglist
 
 mkdir -p tmp
 
