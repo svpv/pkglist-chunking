@@ -116,7 +116,7 @@ int main(int argc, char **argv)
 	case 1: case 2: break;
 	case 3: if (q[1].nameHash > q[2].nameHash) Pop(2); break;
 	case 4: if (q[2].nameHash > q[3].nameHash) Pop(3); break;
-	case 5: if (q[3].nameHash > q[4].nameHash) Pop(4); else Pop(3); break;
+	case 5: if (q[3].nameHash > q[4].nameHash) Pop(2), Pop(2); else Pop(3); break;
 	default: assert(!"possible");
 	}
     }
