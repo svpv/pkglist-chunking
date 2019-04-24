@@ -31,8 +31,6 @@ struct chunker {
 	ST_A2, ST_A3, ST_A4, ST_A5, ST_A6, ST_A7, ST_A8, ST_A9,
 	ST_A2B, ST_A3B, ST_A4B, ST_A5B, ST_A6B, ST_A7B, ST_A8B,
 	ST_A2BC, ST_A3BC, ST_A4BC, ST_A5BC, ST_A6BC, ST_A7BC, ST_A8BC,
-	ST_A3BC2, ST_A3BC2D, ST_A3BC2DE,
-	ST_A4BC2, ST_A4BC3, ST_A4BC2D, ST_A4BC2DE, ST_A4BC3D, ST_A4BC3DE,
 	ST_ABC,
     } st;
     unsigned ret0;
@@ -83,25 +81,13 @@ unsigned chunker_add(struct chunker *C, uint64_t nameHash)
     case ST_A8B: if (eq) ret = 8, C->st = ST_A2; else C->st = ST_A8BC; break;
 
     case ST_A2BC: if (eq) ret = 3, C->st = ST_A2; else ret = 2, C->st = ST_ABC; break;
-    case ST_A3BC: if (eq) C->st = ST_A3BC2;       else ret = 3, C->st = ST_ABC; break;
-    case ST_A4BC: if (eq) C->st = ST_A4BC2;       else ret = 4, C->st = ST_ABC; break;
+    case ST_A3BC: if (eq) ret = 4, C->st = ST_A2; else ret = 3, C->st = ST_ABC; break;
+    case ST_A4BC: if (eq) ret = 5, C->st = ST_A2; else ret = 4, C->st = ST_ABC; break;
     case ST_A5BC: if (eq) ret = 6, C->st = ST_A2; else ret = 5, C->st = ST_ABC; break;
     case ST_A6BC: if (eq) ret = 7, C->st = ST_A2; else ret = 6, C->st = ST_ABC; break;
     case ST_A7BC: if (eq) ret = 8, C->st = ST_A2; else ret = 7, C->st = ST_ABC; break;
 
     case ST_A8BC: if (eq) ret0 = 6, ret = 3, C->st = ST_A2; else ret = 8, C->st = ST_ABC; break;
-
-    case ST_A3BC2: if (eq) ret = 4, C->st = ST_A3; else C->st = ST_A3BC2D; break;
-    case ST_A3BC2D: if (eq) ret0 = 3, ret = 3, C->st = ST_A2; else C->st = ST_A3BC2DE; break;
-    case ST_A3BC2DE: if (eq) ret0 = 4, ret = 3, C->st = ST_A2; else ret0 = 3, ret = 3, C->st = ST_ABC; break;
-
-    case ST_A4BC2: if (eq) C->st = ST_A4BC3; else C->st = ST_A4BC2D; break;
-    case ST_A4BC3: if (eq) ret = 5, C->st = ST_A4; else C->st = ST_A4BC3D; break;
-    case ST_A4BC3D: if (eq) ret0 = 4, ret = 4, C->st = ST_A2; else C->st = ST_A4BC3DE; break;
-    case ST_A4BC3DE: if (eq) ret0 = 5, ret = 4, C->st = ST_A2; else ret0 = 4, ret = 4, C->st = ST_ABC; break;
-
-    case ST_A4BC2D: if (eq) ret0 = 4, ret = 3, C->st = ST_A2; else C->st = ST_A4BC2DE; break;
-    case ST_A4BC2DE: if (eq) ret0 = 5, ret = 3, C->st = ST_A2; else ret0 = 4, ret = 3, C->st = ST_ABC; break;
 
     case ST_ABC: if (eq) ret = 2, C->st = ST_A2; else C->st = ST_ABCD; break;
 
