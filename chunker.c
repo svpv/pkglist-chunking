@@ -29,8 +29,8 @@ struct chunker {
     enum {
 	ST_0, ST_A, ST_AB, ST_ABCD, ST_ABCDE,
 	ST_A2, ST_A3, ST_A4, ST_A5, ST_A6, ST_A7, ST_A8, ST_A9,
-	ST_A2B, ST_A3B, ST_A4B, ST_A5B, ST_A6B, ST_A7B, ST_A8B,
-	ST_A2BC, ST_A3BC, ST_A4BC, ST_A5BC, ST_A6BC, ST_A7BC, ST_A8BC,
+	ST_A2B, ST_A3B, ST_A4B,
+	ST_A2BC, ST_A3BC, ST_A4BC,
 	ST_ABC,
     } st;
     unsigned ret0;
@@ -65,29 +65,20 @@ unsigned chunker_add(struct chunker *C, uint64_t nameHash)
     case ST_A2: if (eq) C->st = ST_A3; else C->st = ST_A2B; break;
     case ST_A3: if (eq) C->st = ST_A4; else C->st = ST_A3B; break;
     case ST_A4: if (eq) C->st = ST_A5; else C->st = ST_A4B; break;
-    case ST_A5: if (eq) C->st = ST_A6; else C->st = ST_A5B; break;
-    case ST_A6: if (eq) C->st = ST_A7; else C->st = ST_A6B; break;
-    case ST_A7: if (eq) C->st = ST_A8; else C->st = ST_A7B; break;
-    case ST_A8: if (eq) C->st = ST_A9; else C->st = ST_A8B; break;
+    case ST_A5: if (eq) C->st = ST_A6; else ret = 5, C->st = ST_A; break;
+    case ST_A6: if (eq) C->st = ST_A7; else ret = 6, C->st = ST_A; break;
+    case ST_A7: if (eq) C->st = ST_A8; else ret = 7, C->st = ST_A; break;
+    case ST_A8: if (eq) C->st = ST_A9; else ret = 8, C->st = ST_A; break;
 
     case ST_A9: if (eq) ret = 8, C->st = ST_A2; else ret = 7, C->st = ST_A2B; break;
 
     case ST_A2B: if (eq) ret = 2, C->st = ST_A2; else C->st = ST_A2BC; break;
     case ST_A3B: if (eq) ret = 3, C->st = ST_A2; else C->st = ST_A3BC; break;
     case ST_A4B: if (eq) ret = 4, C->st = ST_A2; else C->st = ST_A4BC; break;
-    case ST_A5B: if (eq) ret = 5, C->st = ST_A2; else C->st = ST_A5BC; break;
-    case ST_A6B: if (eq) ret = 6, C->st = ST_A2; else C->st = ST_A6BC; break;
-    case ST_A7B: if (eq) ret = 7, C->st = ST_A2; else C->st = ST_A7BC; break;
-    case ST_A8B: if (eq) ret = 8, C->st = ST_A2; else C->st = ST_A8BC; break;
 
     case ST_A2BC: if (eq) ret = 3, C->st = ST_A2; else ret = 2, C->st = ST_ABC; break;
     case ST_A3BC: if (eq) ret = 4, C->st = ST_A2; else ret = 3, C->st = ST_ABC; break;
     case ST_A4BC: if (eq) ret = 5, C->st = ST_A2; else ret = 4, C->st = ST_ABC; break;
-    case ST_A5BC: if (eq) ret = 6, C->st = ST_A2; else ret = 5, C->st = ST_ABC; break;
-    case ST_A6BC: if (eq) ret = 7, C->st = ST_A2; else ret = 6, C->st = ST_ABC; break;
-    case ST_A7BC: if (eq) ret = 8, C->st = ST_A2; else ret = 7, C->st = ST_ABC; break;
-
-    case ST_A8BC: if (eq) ret0 = 6, ret = 3, C->st = ST_A2; else ret = 8, C->st = ST_ABC; break;
 
     case ST_ABC: if (eq) ret = 2, C->st = ST_A2; else C->st = ST_ABCD; break;
 

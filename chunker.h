@@ -29,7 +29,8 @@ void chunker_free(struct chunker *C);
 // Feed a record to the chunker.  For the purpose of chunking, a record
 // is represented with its nameHash (see a detailed comment in enc.h).
 // Returns 0 when the current chunk is still being cooked.  Otherwise
-// returns 2..8, indicating the number of records in the cooked-up chunk.
+// returns 2..8, and occasionally 1, indicating the number of records
+// in the cooked-up chunk.
 unsigned chunker_add(struct chunker *C, uint64_t nameHash);
 
 // When all records are added, call flush repeatedly until it returns 0.
