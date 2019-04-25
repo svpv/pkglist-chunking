@@ -27,11 +27,10 @@ struct chunker {
     unsigned nq;
     uint64_t q[16];
     enum {
-	ST_0, ST_A, ST_AB, ST_ABCD, ST_ABCDE,
+	ST_0, ST_A, ST_AB, ST_ABC, ST_ABCD, ST_ABCDE,
 	ST_A2, ST_A3, ST_A4, ST_A5, ST_A6, ST_A7, ST_A8, ST_A9,
 	ST_A2B, ST_A3B, ST_A4B,
 	ST_A2BC, ST_A3BC, ST_A4BC,
-	ST_ABC,
     } st;
     unsigned ret0;
 };
@@ -80,6 +79,7 @@ unsigned chunker_add(struct chunker *C, uint64_t nameHash)
     case ST_A3BC: if (eq) ret = 4, C->st = ST_A2; else ret = 3, C->st = ST_ABC; break;
     case ST_A4BC: if (eq) ret = 5, C->st = ST_A2; else ret = 4, C->st = ST_ABC; break;
 
+    case ST_AB: if (eq) ret = 1, C->st = ST_A2; else C->st = ST_ABC; break;
     case ST_ABC: if (eq) ret = 2, C->st = ST_A2; else C->st = ST_ABCD; break;
 
     case ST_ABCD:
@@ -98,13 +98,6 @@ unsigned chunker_add(struct chunker *C, uint64_t nameHash)
 	    ret = 3, C->st = ST_ABC;
 	else
 	    ret = 2, C->st = ST_ABCD;
-	break;
-
-    case ST_AB:
-	if (eq)
-	    ret = 1, C->st = ST_A2;
-	else
-	    C->st = ST_ABC;
 	break;
     }
 
