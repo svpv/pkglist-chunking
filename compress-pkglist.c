@@ -178,7 +178,12 @@ int main(int argc, char **argv)
 	}
 #endif
     }
-    if (nq)
-	Pop(nq);
+
+    while (1) {
+	size_t n = chunker_flush(C);
+	if (!n)
+	    break;
+	Pop(n);
+    }
     return 0;
 }

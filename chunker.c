@@ -51,6 +51,22 @@ void chunker_free(struct chunker *C)
     free(C);
 }
 
+static inline unsigned chunker_ret(struct chunker *C, unsigned ret0, unsigned ret)
+{
+    if (ret0) {
+	assert(C->ret0 == 0);
+	assert(ret);
+	C->ret0 = ret;
+	ret = ret0;
+    }
+    if (C->ret0) {
+	ret0 = C->ret0;
+	C->ret0 = ret;
+	ret = ret0;
+    }
+    return ret;
+}
+
 unsigned chunker_add(struct chunker *C, uint64_t nameHash)
 {
     unsigned ret0 = 0, ret = 0;
@@ -105,16 +121,49 @@ unsigned chunker_add(struct chunker *C, uint64_t nameHash)
     C->nq -= ret0 + ret;
     memmove(C->q, C->q + ret0 + ret, C->nq * sizeof C->q[0]);
 
-    if (ret0) {
-	assert(C->ret0 == 0);
-	assert(ret);
-	C->ret0 = ret;
-	return ret0;
+    return chunker_ret(C, ret0, ret);
+}
+
+unsigned chunker_flush(struct chunker *C)
+{
+    unsigned ret0 = 0, ret = 0;
+
+    switch (C->st) {
+    case ST_0: break;
+    case ST_A: ret = 1; break;
+
+    case ST_A2: ret = 2; break;
+    case ST_A3: ret = 3; break;
+    case ST_A4: ret = 4; break;
+    case ST_A5: ret = 5; break;
+    case ST_A6: ret = 6; break;
+    case ST_A7: ret = 7; break;
+    case ST_A8: ret = 8; break;
+    case ST_A9: ret0 = 7, ret = 2; break;
+
+    case ST_A2B: ret = 3; break;
+    case ST_A3B: ret = 4; break;
+    case ST_A4B: ret = 5; break;
+
+    case ST_A2BC: ret0 = 2, ret = 2; break;
+    case ST_A3BC: ret0 = 3, ret = 2; break;
+    case ST_A4BC: ret0 = 4, ret = 2; break;
+
+    case ST_AB: ret = 2; break;
+    case ST_ABC: ret = 3; break;
+    case ST_ABCD: ret0 = 2, ret = 2; break;
+
+    case ST_ABCDE:
+	if (C->q[2] > C->q[3])
+	    ret0 = 3, ret = 2;
+	else
+	    ret0 = 2, ret = 3;
+	break;
     }
-    if (C->ret0) {
-	ret0 = C->ret0;
-	C->ret0 = ret;
-	ret = ret0;
-    }
-    return ret;
+
+    assert(C->nq == ret0 + ret);
+    C->nq = 0;
+    C->st = ST_0;
+
+    return chunker_ret(C, ret0, ret);
 }
