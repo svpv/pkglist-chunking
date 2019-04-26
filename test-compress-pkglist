@@ -5,10 +5,10 @@ mkdir -p tmp
 
 Compress1()
 {
-    local mon=$1 arch=$2
+    local mon=$1 arch=$2; shift 2
     md5a=$(xz -d <data/$mon-$arch-pkglist.classic.xz |md5sum)
     xz -d <data/$mon-$arch-pkglist.classic.xz |
-    ./compress-pkglist -19 -D tmp/$arch.pkg.dict >tmp/$mon-$arch.pkg.zst 2>tmp/$mon-$arch.pkg.chunks
+    ./compress-pkglist "$@" -D tmp/$arch.pkg.dict >tmp/$mon-$arch.pkg.zst 2>tmp/$mon-$arch.pkg.chunks
     md5b=$(zstd -d -D tmp/$arch.pkg.dict <tmp/$mon-$arch.pkg.zst |md5sum)
     if [ "$md5a" != "$md5b" ]; then
 	echo >&2 "cannot decompress the output"
@@ -19,10 +19,10 @@ Compress1()
 
 Arch1()
 {
-    local arch="$1"
+    local arch="$1"; shift
     local mon0 mon1
     for mon0 in 01; do
-	Compress1 $mon0 $arch
+	Compress1 $mon0 $arch "$@"
 	totalRaw=0
 	totalBytes=0
 	totalRecords=0
@@ -32,7 +32,7 @@ Arch1()
     done
     for mon1 in `seq 2 12`; do
 	mon1=`printf %02d $mon1`
-	Compress1 $mon1 $arch
+	Compress1 $mon1 $arch "$@"
 	let totalRaw+=$(xz -d <data/$mon1-$arch-pkglist.classic.xz |wc -c)
 	let totalBytes+=$(wc -c <tmp/$mon1-$arch.pkg.zst)
 	let totalRecords+=$(cut -f3 <tmp/$mon1-$arch.pkg.chunks |wc -w)
@@ -54,7 +54,7 @@ Arch1()
 	$(perl -e 'printf "%.2f", 100*shift()/shift' ${missingChunks} ${totalChunks})% chunks
 }
 
-Arch1 x86_64 &
-Arch1 noarch
+Arch1 x86_64 "$@" &
+Arch1 noarch "$@"
 wait $!
 

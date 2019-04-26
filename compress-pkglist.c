@@ -5,6 +5,7 @@
 #include <inttypes.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <getopt.h>
 #include <t1ha.h>
 #include <zstd.h>
 #include "xread.h"
@@ -15,11 +16,20 @@
 
 int main(int argc, char **argv)
 {
-    int level = 3;
+    int level = 19;
     const char *dictFile = NULL;
 
+    enum {
+	OPT_HELP = 256,
+	OPT_SEED,
+    };
+    static const struct option longopts[] = {
+	{ "help",    no_argument,       NULL, OPT_HELP },
+	{ "seed",    required_argument, NULL, OPT_SEED },
+	{  NULL,     0,                 NULL,  0  },
+    };
     int opt;
-    while ((opt = getopt(argc, argv, "1::2::3::4::5::6::7::8::9::D:")) != -1) {
+    while ((opt = getopt_long(argc, argv, "1::2::3::4::5::6::7::8::9::D:", longopts, NULL)) != -1) {
 	switch (opt) {
 	case '1':
 	    if (!optarg)
@@ -38,6 +48,10 @@ int main(int argc, char **argv)
 	    break;
 	case 'D':
 	    dictFile = optarg;
+	    break;
+	case OPT_SEED:
+	    assert(*optarg >= '0' && *optarg <= '9');
+	    rpmBlobSeed = strtoull(optarg, NULL, 0);
 	    break;
 	default:
 	    fprintf(stderr, "Usage: %s <IN >OUT\n", argv[0]);

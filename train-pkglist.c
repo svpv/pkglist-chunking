@@ -1,4 +1,6 @@
 #include <stdio.h>
+#include <getopt.h>
+#include <inttypes.h>
 #define ZDICT_STATIC_LINKING_ONLY
 #include <zdict.h>
 #include "xwrite.h"
@@ -49,18 +51,62 @@ static void load(void)
     chunker_free(C);
 }
 
-int main()
+int main(int argc, char **argv)
 {
     assert(!isatty(0));
     assert(!isatty(1));
+
+    int level = 19;
+    int verbose = 2;
+
+    enum {
+	OPT_HELP = 256,
+	OPT_SEED,
+    };
+    static const struct option longopts[] = {
+	{ "help",    no_argument,       NULL, OPT_HELP },
+	{ "verbose", no_argument,       NULL, 'v' },
+	{ "seed",    required_argument, NULL, OPT_SEED },
+	{  NULL,     0,                 NULL,  0  },
+    };
+    int opt;
+    while ((opt = getopt_long(argc, argv, "1::2::3::4::5::6::7::8::9::v", longopts, NULL)) != -1) {
+	switch (opt) {
+	case '1':
+	    if (!optarg)
+		level = 1;
+	    else {
+		assert(*optarg >= '0' && *optarg <= '9');
+		assert(optarg[1] == '\0');
+		level = 10 + *optarg - '0';
+	    }
+	    break;
+	case '2': case '3': case '4': case '5':
+	case '6': case '7': case '8': case '9':
+	    if (optarg)
+		assert(!"supported levels > 19");
+	    level = opt - '0';
+	    break;
+	case 'v':
+	    verbose++;
+	    break;
+	case OPT_SEED:
+	    assert(*optarg >= '0' && *optarg <= '9');
+	    rpmBlobSeed = strtoull(optarg, NULL, 0);
+	    break;
+	default:
+	    fprintf(stderr, "Usage: %s <pkglist >dict\n", argv[0]);
+	    return 2;
+	}
+    }
 
     load();
 
     ZDICT_cover_params_t params = {
 	.d = 6,
 	.nbThreads = 2,
-	.zParams.notificationLevel = 3,
-	.zParams.compressionLevel = 19,
+	.zParams.compressionLevel = level,
+	.zParams.notificationLevel = verbose,
     };
     char dict[512<<10];
     size_t dictSize = ZDICT_optimizeTrainFromBuffer_cover(dict, sizeof dict,
