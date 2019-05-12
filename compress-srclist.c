@@ -5,20 +5,30 @@
 #include <inttypes.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <getopt.h>
 #include <t1ha.h>
 #include <zstd.h>
 #include "xread.h"
 #include "xwrite.h"
 #include "srpmblob.h"
-#include "shingle.h"
+#include "chunker.h"
 
 int main(int argc, char **argv)
 {
-    int level = 3;
+    int level = 19;
     const char *dictFile = NULL;
 
+    enum {
+	OPT_HELP = 256,
+	OPT_SEED,
+    };
+    static const struct option longopts[] = {
+	{ "help",    no_argument,       NULL, OPT_HELP },
+	{ "seed",    required_argument, NULL, OPT_SEED },
+	{  NULL,     0,                 NULL,  0  },
+    };
     int opt;
-    while ((opt = getopt(argc, argv, "1::2::3::4::5::6::7::8::9::D:")) != -1) {
+    while ((opt = getopt_long(argc, argv, "1::2::3::4::5::6::7::8::9::D:", longopts, NULL)) != -1) {
 	switch (opt) {
 	case '1':
 	    if (!optarg)
@@ -37,6 +47,10 @@ int main(int argc, char **argv)
 	    break;
 	case 'D':
 	    dictFile = optarg;
+	    break;
+	case OPT_SEED:
+	    assert(*optarg >= '0' && *optarg <= '9');
+	    srpmBlobSeed = strtoull(optarg, NULL, 0);
 	    break;
 	default:
 	    fprintf(stderr, "Usage: %s <IN >OUT\n", argv[0]);
@@ -59,7 +73,7 @@ int main(int argc, char **argv)
 	assert(cdict);
     }
 
-    struct srpmBlob q[8];
+    struct srpmBlob q[16];
     size_t nq = 0;
 
     void Pop(size_t n)
@@ -109,17 +123,20 @@ int main(int argc, char **argv)
 	memmove(q, q + n, nq * sizeof q[0]);
     }
 
+    struct chunker *C = chunker_new();
+    assert(C);
+
     // 2+ headers per chunk.
     while (readSrpmBlob(&q[nq])) {
-	nq++;
-	switch (nq) {
-	case 1: case 2: break;
-	case 3: if (q[1].nameHash > q[2].nameHash) Pop(2); break;
-	case 4: if (q[2].nameHash > q[3].nameHash) Pop(3); else Pop(2); break;
-	default: assert(!"possible");
-	}
+	size_t n = chunker_add(C, q[nq++].nameHash);
+	if (n)
+	    Pop(n);
     }
-    if (nq)
-	Pop(nq);
+    while (1) {
+	size_t n = chunker_flush(C);
+	if (!n)
+	    break;
+	Pop(n);
+    }
     return 0;
 }
