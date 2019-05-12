@@ -28,6 +28,8 @@
 #include <t1ha.h>
 #include "xread.h"
 
+static uint64_t srpmBlobSeed;
+
 struct srpmBlob {
     void *blob;
     size_t blobSize;
@@ -73,7 +75,7 @@ static bool readSrpmBlob(struct srpmBlob *b)
     assert(off < dl);
     char *data = (void *) (ee + il);
     b->name = &data[off];
-    b->nameHash = t1ha(b->name, strlen(b->name), 0);
+    b->nameHash = t1ha(b->name, strlen(b->name), srpmBlobSeed);
     b->shi = NULL;
     return true;
 }

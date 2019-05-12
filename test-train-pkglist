@@ -4,6 +4,12 @@ make -C zstd/lib libzstd.a-mt
 gcc -g -O2 -Wall -D_GNU_SOURCE train-pkglist.c chunker.c -lt1ha -o train-pkglist \
     -Izstd/lib/dictBuilder -pthread zstd/lib/libzstd.a
 # The dictionary should be train on the old state.
-for arch in x86_64 noarch; do
-    xz -d <data/01-$arch-pkglist.classic.xz |./train-pkglist "$@" >tmp/$arch.pkg.dict
-done
+Train()
+{
+    local arch=$1; shift
+    xz -d <data/01-$arch-pkglist.classic.xz |
+    ./train-pkglist "$@" >tmp/$arch.pkg.dict
+}
+Train x86_64 "$@" &
+Train noarch "$@"
+wait $!

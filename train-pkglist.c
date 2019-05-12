@@ -1,6 +1,5 @@
 #include <stdio.h>
 #include <getopt.h>
-#include <inttypes.h>
 #define ZDICT_STATIC_LINKING_ONLY
 #include <zdict.h>
 #include "xwrite.h"

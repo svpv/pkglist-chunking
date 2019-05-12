@@ -1,8 +1,10 @@
 #include <stdio.h>
+#include <getopt.h>
 #define ZDICT_STATIC_LINKING_ONLY
 #include <zdict.h>
 #include "xwrite.h"
 #include "srpmblob.h"
+#include "chunker.h"
 
 struct samples {
     size_t nbSamples;
@@ -12,7 +14,7 @@ struct samples {
 
 static void load(void)
 {
-    struct srpmBlob q[8];
+    struct srpmBlob q[16];
     size_t nq = 0;
 
     void *p = samples.samplesBuffer;
@@ -33,42 +35,124 @@ static void load(void)
 	memmove(q, q + n, nq * sizeof q[0]);
     }
 
+    struct chunker *C = chunker_new();
     while (readSrpmBlob(&q[nq])) {
-	nq++;
-	switch (nq) {
-	case 1: case 2: break;
-	case 3: if (q[1].nameHash > q[2].nameHash) Pop(2); break;
-	case 4: if (q[2].nameHash > q[3].nameHash) Pop(3); break;
-	case 5: if (q[3].nameHash > q[4].nameHash) Pop(4); break;
-	case 6: if (q[4].nameHash > q[5].nameHash) Pop(5); break;
-	case 7: if (q[5].nameHash > q[6].nameHash) Pop(6); break;
-	case 8: if (q[6].nameHash > q[7].nameHash) Pop(7); else Pop(8); break;
-	default: assert(!"possible");
-	}
+	size_t n = chunker_add(C, q[nq++].nameHash);
+	if (n)
+	    Pop(n);
     }
-    if (nq)
-	Pop(nq);
+    while (1) {
+	size_t n = chunker_flush(C);
+	if (!n)
+	    break;
+	Pop(n);
+    }
+    chunker_free(C);
 }
 
-int main()
+int main(int argc, char **argv)
 {
     assert(!isatty(0));
     assert(!isatty(1));
 
+    int level = 19;
+    int verbose = 1;
+    bool fast = false;
+    int d = 0, k = 0;
+
+    enum {
+	OPT_HELP = 256,
+	OPT_SEED,
+	OPT_FAST,
+    };
+    static const struct option longopts[] = {
+	{ "help",    no_argument,       NULL, OPT_HELP },
+	{ "verbose", no_argument,       NULL, 'v' },
+	{ "seed",    required_argument, NULL, OPT_SEED },
+	{ "fast",    no_argument,       NULL, OPT_FAST },
+	{  NULL,     0,                 NULL,  0  },
+    };
+    int opt;
+    while ((opt = getopt_long(argc, argv, "1::2::3::4::5::6::7::8::9::d:k:v", longopts, NULL)) != -1) {
+	switch (opt) {
+	case '1':
+	    if (!optarg)
+		level = 1;
+	    else {
+		assert(*optarg >= '0' && *optarg <= '9');
+		assert(optarg[1] == '\0');
+		level = 10 + *optarg - '0';
+	    }
+	    break;
+	case '2': case '3': case '4': case '5':
+	case '6': case '7': case '8': case '9':
+	    if (optarg)
+		assert(!"supported levels > 19");
+	    level = opt - '0';
+	    break;
+	case 'd':
+	    d = atoi(optarg);
+	    assert(d > 0);
+	    break;
+	case 'k':
+	    k = atoi(optarg);
+	    assert(k > 0);
+	    break;
+	case 'v':
+	    verbose++;
+	    break;
+	case OPT_SEED:
+	    assert(*optarg >= '0' && *optarg <= '9');
+	    srpmBlobSeed = strtoull(optarg, NULL, 0);
+	    break;
+	case OPT_FAST:
+	    fast = 1;
+	    break;
+	default:
+	    fprintf(stderr, "Usage: %s <pkglist >dict\n", argv[0]);
+	    return 2;
+	}
+    }
+
     load();
 
     ZDICT_cover_params_t params = {
-	.d = 6,
+	.d = d, .k = k,
 	.nbThreads = 2,
-	.zParams.notificationLevel = 3,
-	.zParams.compressionLevel = 19,
+	.zParams.compressionLevel = level,
+	.zParams.notificationLevel = verbose,
+    };
+    ZDICT_fastCover_params_t fastParams = {
+	.d = d, .k = k,
+	.nbThreads = 2,
+	.zParams.compressionLevel = level,
+	.zParams.notificationLevel = verbose,
+	.splitPoint = 1.0,
     };
     char dict[512<<10];
-    size_t dictSize = ZDICT_optimizeTrainFromBuffer_cover(dict, sizeof dict,
-	    samples.samplesBuffer, samples.samplesSizes, samples.nbSamples,
-	    &params);
-    assert(dictSize == sizeof dict);
-    fprintf(stderr, "best parameters: d=%u k=%u\n", params.d, params.k);
+    size_t dictSize;
+    if (fast) {
+	if (d && k)
+	    dictSize = ZDICT_trainFromBuffer_fastCover(dict, sizeof dict,
+		samples.samplesBuffer, samples.samplesSizes, samples.nbSamples, fastParams);
+	else {
+	    dictSize = ZDICT_optimizeTrainFromBuffer_fastCover(dict, sizeof dict,
+		samples.samplesBuffer, samples.samplesSizes, samples.nbSamples, &fastParams);
+	    fprintf(stderr, "best parameters: d=%u k=%u\n", fastParams.d, fastParams.k);
+	}
+	assert(dictSize >= (64<<10) && dictSize <= sizeof dict);
+    }
+    else {
+	if (d && k)
+	    dictSize = ZDICT_trainFromBuffer_cover(dict, sizeof dict,
+		samples.samplesBuffer, samples.samplesSizes, samples.nbSamples, params);
+	else {
+	    dictSize = ZDICT_optimizeTrainFromBuffer_cover(dict, sizeof dict,
+		samples.samplesBuffer, samples.samplesSizes, samples.nbSamples, &params);
+	    fprintf(stderr, "best parameters: d=%u k=%u\n", params.d, params.k);
+	}
+	assert(dictSize == sizeof dict);
+    }
 
     if (!xwrite(1, dict, dictSize))
 	assert(!!!"write failed");
