@@ -6,7 +6,7 @@
 # (the answer is no).
 
 level=-19
-dopt='-d6 -k648'
+dopt='-d6 -k600'
 iter=${1:-10}
 
 Job()
@@ -15,19 +15,19 @@ Job()
     seed=0x${seed# }
 
     job=$1 arch=$2
-    xz -d <data/01-$arch-pkglist.classic.xz |
-    ./train-pkglist $dopt $level --seed=$seed >tmp/dict$job
+    xz -d <data/01-$arch-srclist.classic.xz |
+    ./train-srclist $dopt $level --seed=$seed >tmp/dict$job
 
     # Compress with the same chunking as dict.
-    s1=$(xz -d <data/01-$arch-pkglist.classic.xz |
-	./compress-pkglist -D tmp/dict$job $level --seed=$seed 2>/dev/null |wc -c)
+    s1=$(xz -d <data/01-$arch-srclist.classic.xz |
+	./compress-srclist -D tmp/dict$job $level --seed=$seed 2>/dev/null |wc -c)
 
     seed=$(od -An -v -tx8 -N8 </dev/urandom)
     seed=0x${seed# }
 
     # Compress with another seed, chunked differently.
-    s2=$(xz -d <data/01-$arch-pkglist.classic.xz |
-	./compress-pkglist -D tmp/dict$job $level --seed=$seed 2>/dev/null |wc -c)
+    s2=$(xz -d <data/01-$arch-srclist.classic.xz |
+	./compress-srclist -D tmp/dict$job $level --seed=$seed 2>/dev/null |wc -c)
 
     printf '%s\t%s\n' $s1 $s2
 }
