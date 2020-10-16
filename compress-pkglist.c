@@ -16,15 +16,18 @@
 int main(int argc, char **argv)
 {
     int level = 19;
+    int wlog = -1;
     const char *dictFile = NULL;
 
     enum {
 	OPT_HELP = 256,
 	OPT_SEED,
+	OPT_WLOG,
     };
     static const struct option longopts[] = {
 	{ "help",    no_argument,       NULL, OPT_HELP },
 	{ "seed",    required_argument, NULL, OPT_SEED },
+	{ "wlog",    required_argument, NULL, OPT_WLOG },
 	{  NULL,     0,                 NULL,  0  },
     };
     int opt;
@@ -52,6 +55,10 @@ int main(int argc, char **argv)
 	    assert(*optarg >= '0' && *optarg <= '9');
 	    rpmBlobSeed = strtoull(optarg, NULL, 0);
 	    break;
+	case OPT_WLOG:
+	    wlog = atoi(optarg);
+	    assert(wlog > 0);
+	    break;
 	default:
 	    fprintf(stderr, "Usage: %s <IN >OUT\n", argv[0]);
 	    return 2;
@@ -60,8 +67,12 @@ int main(int argc, char **argv)
 
     ZSTD_CCtx* cctx = ZSTD_createCCtx();
     assert(cctx);
-
-    ZSTD_CDict *cdict = NULL;
+    size_t zret = ZSTD_CCtx_setParameter(cctx, ZSTD_c_compressionLevel, level);
+    assert(!ZSTD_isError(zret));
+    if (wlog > 0) {
+	zret = ZSTD_CCtx_setParameter(cctx, ZSTD_c_windowLog, wlog);
+	assert(!ZSTD_isError(zret));
+    }
     if (dictFile) {
 	char buf[(1<<20)+1];
 	int fd = open(dictFile, O_RDONLY);
@@ -69,8 +80,8 @@ int main(int argc, char **argv)
 	ssize_t ret = xread(fd, buf, sizeof buf);
 	assert(ret > 0);
 	assert(ret < sizeof buf);
-	cdict = ZSTD_createCDict(buf, ret, level);
-	assert(cdict);
+	zret = ZSTD_CCtx_loadDictionary(cctx, buf, ret);
+	assert(!ZSTD_isError(zret));
     }
 
     struct rpmBlob q[16];
@@ -94,13 +105,8 @@ int main(int argc, char **argv)
 	    p = mempcpy(p, q[i].blob, q[i].blobSize);
 	assert(p - q[0].blob == totalSize);
 
-	size_t zsize;
-	if (cdict)
-	    zsize = ZSTD_compress_usingCDict(cctx, p, ZSTD_COMPRESSBOUND(totalSize),
-					     q[0].blob, totalSize, cdict);
-	else
-	    zsize = ZSTD_compressCCtx(cctx, p, ZSTD_COMPRESSBOUND(totalSize),
-				      q[0].blob, totalSize, level);
+	size_t zsize = ZSTD_compress2(cctx, p, ZSTD_COMPRESSBOUND(totalSize),
+				      q[0].blob, totalSize);
 	assert(zsize > 0);
 	assert(zsize <= ZSTD_COMPRESSBOUND(totalSize));
 
