@@ -93,7 +93,7 @@ static bool readRpmBlob(struct rpmBlob *b)
     off = ntohl(e->off);
     assert(off < dl);
     b->srpm = &data[off];
-    b->nameHash = t1ha(b->srpm, srpmNameLen(b->srpm), rpmBlobSeed);
+    b->nameHash = t1ha0(b->srpm, srpmNameLen(b->srpm), rpmBlobSeed);
     b->shi = NULL;
     return true;
 }
